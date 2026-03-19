@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TRN Multi-Game Dashboard</title>
+    <title>Ultimate Gaming Tracker</title>
     <style>
         :root {
             --val-red: #ff4655;
-            --lol-gold: #c8aa6e;
+            --cs-orange: #de9b35;
+            --r6-yellow: #ffb600;
             --val-dark: #111111;
             --val-gray: #ece8e1;
             --bg-panel: rgba(255, 255, 255, 0.05);
@@ -28,7 +29,7 @@
 
         h1 { color: var(--theme-color); text-transform: uppercase; letter-spacing: 2px; transition: color 0.3s; }
 
-        .game-selector { display: flex; gap: 15px; margin-bottom: 20px; }
+        .game-selector { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
 
         .game-tab {
             padding: 10px 20px; background-color: #222; color: #888;
@@ -57,60 +58,102 @@
         }
         button.action-btn:hover { filter: brightness(1.2); }
         
+        #stopBtn { background-color: #555; display: none; }
+        #stopBtn:hover { background-color: #777; }
+
         #status { font-size: 14px; color: #aaa; margin-bottom: 20px; height: 20px; text-align: center; }
 
+        /* Dashboard Layout */
         .dashboard {
-            display: none; grid-template-columns: 1fr; gap: 20px; width: 100%; max-width: 600px;
+            display: none; grid-template-columns: 1fr; gap: 20px; width: 100%; max-width: 800px;
         }
+        
+        /* Val Specific Dashboard Grids */
+        .val-grid { grid-template-columns: 1fr 2fr; }
 
         .stat-box {
             background-color: var(--bg-panel); border-radius: 8px; padding: 20px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: 1px solid rgba(255, 255, 255, 0.05);
-            text-align: center;
         }
 
-        .profile-icon { width: 100px; height: 100px; border-radius: 8px; border: 2px solid var(--theme-color); margin-bottom: 15px; }
+        .centered-box { text-align: center; }
+
+        .profile-header {
+            grid-column: 1 / -1; height: 150px; border-radius: 8px; background-size: cover;
+            background-position: center; display: flex; align-items: flex-end; padding: 20px;
+            box-sizing: border-box; border: 2px solid var(--theme-color); position: relative;
+        }
+        
+        .profile-header::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.1)); border-radius: 6px; z-index: 1;
+        }
+
+        .profile-info { position: relative; z-index: 2; display: flex; align-items: center; gap: 20px; }
+        .profile-icon { width: 80px; height: 80px; border-radius: 8px; border: 2px solid white; }
+        .profile-info h2 { margin: 0; font-size: 28px; }
+        .profile-info p { margin: 5px 0 0 0; color: #bbb; font-weight: bold; }
+
+        .rank-card { text-align: center; display: flex; flex-direction: column; align-items: center; }
+        .rank-card h3 { margin-top: 0; color: var(--val-gray); }
+        .rank-icon { width: 100px; margin: 10px 0; }
+        .rank-name { font-size: 22px; font-weight: bold; margin: 0; color: var(--theme-color); }
+
+        .match-item {
+            display: flex; align-items: center; gap: 15px; background-color: rgba(0,0,0,0.3);
+            padding: 10px; border-radius: 6px; margin-bottom: 10px;
+        }
+        .match-agent { width: 50px; height: 50px; border-radius: 50%; }
+        .match-details { flex-grow: 1; }
+        .win { color: #4CAF50; } .loss { color: #F44336; }
         .error { color: var(--theme-color); font-weight: bold; text-align: center; width: 100%; }
         
-        .stat-grid {
+        .trn-stat-grid {
             display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; text-align: left;
         }
-        .stat-item {
-            background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px;
+        .trn-stat-item {
+            background: rgba(0,0,0,0.3); padding: 15px; border-radius: 6px; border-left: 4px solid var(--theme-color);
         }
     </style>
 </head>
 <body>
 
-    <h1 id="pageTitle">TRN Valorant Tracker</h1>
+    <h1 id="pageTitle">Valorant Tracker</h1>
 
     <div class="game-selector">
         <button class="game-tab active" id="tab-val" onclick="switchGame('valorant')">Valorant</button>
-        <button class="game-tab" id="tab-lol" onclick="switchGame('lol')">League of Legends</button>
+        <button class="game-tab" id="tab-cs" onclick="switchGame('cs')">CS2 / CS:GO</button>
+        <button class="game-tab" id="tab-r6" onclick="switchGame('r6')">R6 Siege</button>
     </div>
 
     <div class="search-container" id="searchInputs">
         </div>
 
-    <div id="status">Ready. Select a game and enter a Riot ID.</div>
+    <div id="status">Ready. Select a game to begin.</div>
     <div id="errorMsg" class="error"></div>
 
     <div class="dashboard" id="dashboard">
         </div>
 
     <script>
-        // Your TRN API Key
+        // API KEYS
+        const valApiKey = 'HDEV-2bf4c45f-2325-4ae7-a4e5-56c1753680f2'; 
         const trnApiKey = '8b483a0a-7d90-49fe-912b-911f5296d6c9'; 
 
-        // We use a proxy to bypass strict browser CORS rules for local testing
         const proxyUrl = 'https://corsproxy.io/?';
-
         let currentGame = 'valorant';
+        let valInterval;
+
         window.onload = () => switchGame('valorant');
 
         function switchGame(game) {
             currentGame = game;
-            document.getElementById('dashboard').style.display = 'none';
+            stopValTracking();
+            
+            const dash = document.getElementById('dashboard');
+            dash.style.display = 'none';
+            dash.className = 'dashboard'; // Reset classes
+            
             document.getElementById('errorMsg').innerText = '';
             document.querySelectorAll('.game-tab').forEach(tab => tab.classList.remove('active'));
             
@@ -120,42 +163,157 @@
             if (game === 'valorant') {
                 document.getElementById('tab-val').classList.add('active');
                 root.style.setProperty('--theme-color', 'var(--val-red)');
-                document.getElementById('pageTitle').innerText = "TRN Valorant Tracker";
+                document.getElementById('pageTitle').innerText = "Valorant Tracker";
                 searchContainer.innerHTML = `
-                    <input type="text" id="riotName" placeholder="Riot ID" required>
-                    <input type="text" id="riotTag" placeholder="Tag" required style="width: 100px;">
-                    <button class="action-btn" onclick="fetchTRNData('valorant')">Search Valorant</button>
+                    <input type="text" id="valName" placeholder="Riot ID" required>
+                    <input type="text" id="valTag" placeholder="Tag" required style="width: 100px;">
+                    <button class="action-btn" onclick="startValTracking()">Search & Track</button>
+                    <button id="stopBtn" class="action-btn" onclick="stopValTracking()">Stop</button>
                 `;
-            } else if (game === 'lol') {
-                document.getElementById('tab-lol').classList.add('active');
-                root.style.setProperty('--theme-color', 'var(--lol-gold)');
-                document.getElementById('pageTitle').innerText = "TRN League Tracker";
+            } else if (game === 'cs') {
+                document.getElementById('tab-cs').classList.add('active');
+                root.style.setProperty('--theme-color', 'var(--cs-orange)');
+                document.getElementById('pageTitle').innerText = "CS2 / CS:GO Tracker";
                 searchContainer.innerHTML = `
-                    <input type="text" id="riotName" placeholder="Riot ID" required>
-                    <input type="text" id="riotTag" placeholder="Tag" required style="width: 100px;">
-                    <button class="action-btn" onclick="fetchTRNData('league-of-legends')">Search LoL</button>
+                    <input type="text" id="csId" placeholder="Steam ID (e.g. 765611...)" required style="width: 250px;">
+                    <button class="action-btn" onclick="fetchTRNData('csgo', 'steam', document.getElementById('csId').value)">Search Stats</button>
+                `;
+            } else if (game === 'r6') {
+                document.getElementById('tab-r6').classList.add('active');
+                root.style.setProperty('--theme-color', 'var(--r6-yellow)');
+                document.getElementById('pageTitle').innerText = "Rainbow Six Tracker";
+                searchContainer.innerHTML = `
+                    <input type="text" id="r6Name" placeholder="Ubisoft/PSN/Xbox Name" required style="width: 220px;">
+                    <select id="r6Platform">
+                        <option value="ubi">PC (Ubisoft Connect)</option>
+                        <option value="psn">PlayStation</option>
+                        <option value="xbl">Xbox</option>
+                    </select>
+                    <button class="action-btn" onclick="fetchTRNData('r6siege', document.getElementById('r6Platform').value, document.getElementById('r6Name').value)">Search Stats</button>
                 `;
             }
         }
 
-        async function fetchTRNData(gamePath) {
-            const name = document.getElementById('riotName').value.trim();
-            const tag = document.getElementById('riotTag').value.trim().replace('#', '');
+        // --- VALORANT LOGIC (HenrikDev API) ---
+
+        function startValTracking() {
+            document.getElementById('errorMsg').innerHTML = '';
+            document.getElementById('stopBtn').style.display = 'inline-block';
+            if (valInterval) clearInterval(valInterval);
+            fetchValorantData(); 
+            valInterval = setInterval(fetchValorantData, 12000); 
+            document.getElementById('status').innerText = `Tracking Valorant stats live...`;
+            document.getElementById('status').style.color = '#4CAF50';
+        }
+
+        function stopValTracking() {
+            if (valInterval) clearInterval(valInterval);
+            const stopBtn = document.getElementById('stopBtn');
+            if(stopBtn) stopBtn.style.display = 'none';
+            document.getElementById('status').innerText = 'Ready.';
+            document.getElementById('status').style.color = '#aaa';
+        }
+
+        async function fetchValorantData() {
+            const name = document.getElementById('valName').value.trim();
+            const tag = document.getElementById('valTag').value.trim().replace('#', '');
+            if (!name || !tag) return;
+
+            const headers = { 'Authorization': valApiKey };
+
+            try {
+                const accRes = await fetch(`https://api.henrikdev.xyz/valorant/v1/account/${name}/${tag}`, { headers });
+                const accJson = await accRes.json();
+                if (accJson.status !== 200) throw new Error(accJson.errors[0].message);
+                
+                const acc = accJson.data;
+                const region = acc.region;
+
+                const [mmrRes, matchRes] = await Promise.all([
+                    fetch(`https://api.henrikdev.xyz/valorant/v1/mmr/${region}/${name}/${tag}`, { headers }),
+                    fetch(`https://api.henrikdev.xyz/valorant/v3/matches/${region}/${name}/${tag}?size=3`, { headers })
+                ]);
+
+                const mmrJson = await mmrRes.json();
+                const matchJson = await matchRes.json();
+
+                const dash = document.getElementById('dashboard');
+                dash.className = 'dashboard val-grid'; // Use grid for val
+                dash.style.display = 'grid';
+                dash.innerHTML = `
+                    <div class="profile-header" style="background-image: url('${acc.card.wide}')">
+                        <div class="profile-info">
+                            <img src="${acc.card.small}" class="profile-icon">
+                            <div>
+                                <h2>${acc.name} #${acc.tag}</h2>
+                                <p>Level ${acc.account_level} • ${region.toUpperCase()}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-box rank-card">
+                        <h3>Current Rank</h3>
+                        <img src="${mmrJson.data ? mmrJson.data.images.large : ''}" class="rank-icon">
+                        <p class="rank-name">${mmrJson.data ? mmrJson.data.currenttierpatched : 'Unranked'}</p>
+                        <p>${mmrJson.data ? mmrJson.data.ranking_in_tier + ' RR' : 'Hidden'}</p>
+                    </div>
+
+                    <div class="stat-box">
+                        <h3 style="margin-top:0;">Recent Matches</h3>
+                        <div id="valMatches"></div>
+                    </div>
+                `;
+
+                let matchesHtml = '';
+                if (matchJson.status === 200 && matchJson.data) {
+                    matchJson.data.forEach(match => {
+                        const me = match.players.all_players.find(p => p.name.toLowerCase() === name.toLowerCase());
+                        if (me) {
+                            let resultClass = ""; let resultText = match.metadata.mode;
+                            const myTeam = me.team ? me.team.toLowerCase() : null;
+                            if (match.teams && myTeam && match.teams[myTeam]) {
+                                if (match.teams[myTeam].has_won) { resultClass = "win"; resultText = "VICTORY"; } 
+                                else if (match.teams[myTeam].rounds_won < match.teams[myTeam].rounds_lost) { resultClass = "loss"; resultText = "DEFEAT"; }
+                            }
+                            matchesHtml += `
+                                <div class="match-item">
+                                    <img src="${me.assets.agent.small}" class="match-agent">
+                                    <div class="match-details">
+                                        <strong>${match.metadata.map}</strong><br>
+                                        <span class="${resultClass}">${resultText}</span>
+                                    </div>
+                                    <div style="font-weight: bold;">${me.stats.kills} / ${me.stats.deaths} / ${me.stats.assists}</div>
+                                </div>
+                            `;
+                        }
+                    });
+                }
+                document.getElementById('valMatches').innerHTML = matchesHtml || '<p>No recent matches.</p>';
+
+            } catch (error) {
+                document.getElementById('errorMsg').innerText = `Error: ${error.message}`;
+                stopValTracking();
+            }
+        }
+
+        // --- CS2 & R6 LOGIC (TRN API) ---
+
+        async function fetchTRNData(gamePath, platform, username) {
+            username = username.trim();
             const resultDiv = document.getElementById('dashboard');
             const errorDiv = document.getElementById('errorMsg');
             
-            if (!name || !tag) {
-                errorDiv.innerText = "Please enter both ID and Tag.";
+            if (!username) {
+                errorDiv.innerText = "Please enter an ID or Username.";
                 return;
             }
 
             errorDiv.innerText = '';
-            document.getElementById('status').innerText = 'Fetching data from Tracker Network...';
+            document.getElementById('status').innerText = 'Pinging Tracker Network servers...';
 
             try {
-                // TRN URL Structure: /v2/{game}/standard/profile/riot/{name}%23{tag}
-                const encodedId = encodeURIComponent(`${name}#${tag}`);
-                const targetUrl = `https://public-api.tracker.gg/v2/${gamePath}/standard/profile/riot/${encodedId}`;
+                const encodedId = encodeURIComponent(username);
+                const targetUrl = `https://public-api.tracker.gg/v2/${gamePath}/standard/profile/${platform}/${encodedId}`;
                 
                 const response = await fetch(proxyUrl + encodeURIComponent(targetUrl), {
                     method: 'GET',
@@ -173,39 +331,41 @@
 
                 const data = json.data;
                 const platformInfo = data.platformInfo;
-                const stats = data.segments[0].stats; // Segment 0 is usually lifetime/overall stats
+                const stats = data.segments[0].stats; // Segment 0 contains lifetime overall stats
 
-                // Dynamically grab stats based on which game we are searching
-                let stat1Title = gamePath === 'valorant' ? 'Current Rank' : 'Summoner Level';
-                let stat1Value = gamePath === 'valorant' ? (stats.rank ? stats.rank.displayValue : 'Unranked') : (stats.level ? stats.level.displayValue : 'Unknown');
-                
-                let stat2Title = gamePath === 'valorant' ? 'K/D Ratio' : 'Matches Played';
-                let stat2Value = gamePath === 'valorant' ? (stats.kdRatio ? stats.kdRatio.displayValue : 'N/A') : (stats.matchesPlayed ? stats.matchesPlayed.displayValue : 'N/A');
+                // Smart Loop: Dynamically pulls the top 4 stats regardless of what TRN names them
+                let statsHtml = '';
+                let count = 0;
+                for (const key in stats) {
+                    if (count >= 4) break; 
+                    const stat = stats[key];
+                    statsHtml += `
+                        <div class="trn-stat-item">
+                            <strong style="color: #aaa;">${stat.displayName}</strong><br>
+                            <span style="font-size: 1.6em; font-weight: bold; color: white;">${stat.displayValue}</span>
+                        </div>
+                    `;
+                    count++;
+                }
 
+                resultDiv.className = 'dashboard'; // Reset to single column
                 resultDiv.style.display = 'block';
                 resultDiv.innerHTML = `
-                    <div class="stat-box">
-                        <img src="${platformInfo.avatarUrl || 'https://via.placeholder.com/100'}" class="profile-icon" alt="Avatar">
-                        <h2>${platformInfo.platformUserHandle}</h2>
+                    <div class="stat-box centered-box">
+                        <img src="${platformInfo.avatarUrl || 'https://via.placeholder.com/100'}" style="width: 120px; border-radius: 50%; border: 3px solid var(--theme-color); margin-bottom: 10px;">
+                        <h2 style="font-size: 32px; margin: 0;">${platformInfo.platformUserHandle}</h2>
                         
-                        <div class="stat-grid">
-                            <div class="stat-item">
-                                <strong>${stat1Title}</strong><br>
-                                <span style="font-size: 1.2em; color: var(--theme-color);">${stat1Value}</span>
-                            </div>
-                            <div class="stat-item">
-                                <strong>${stat2Title}</strong><br>
-                                <span style="font-size: 1.2em; color: var(--theme-color);">${stat2Value}</span>
-                            </div>
+                        <div class="trn-stat-grid">
+                            ${statsHtml}
                         </div>
                     </div>
                 `;
 
-                document.getElementById('status').innerText = 'Data loaded successfully.';
+                document.getElementById('status').innerText = 'Data successfully parsed and loaded.';
 
             } catch (error) {
                 console.error(error);
-                errorDiv.innerText = `Error: ${error.message}. (Note: If CORS fails, the proxy might be down).`;
+                errorDiv.innerText = `Error: ${error.message} (Note: TRN CS2 often requires a pure 17-digit SteamID64).`;
                 document.getElementById('status').innerText = 'Ready.';
             }
         }
