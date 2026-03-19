@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Valorant Profile Dashboard</title>
+    <style>
+        :root {
+            --val-red: #ff4655;
+            --val-dark: #111111;
+            --val-gray: #ece8e1;
+            --bg-panel: rgba(255, 255, 255, 0.05);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--val-dark);
+            color: var(--val-gray);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px 20px;
+            margin: 0;
+        }
+
+        h1 { color: var(--val-red); text-transform: uppercase; letter-spacing: 2px; }
+
+        .search-container {
+            background-color: var(--bg-panel);
+            padding: 20px;
+            border-radius: 8px;
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        input {
+            padding: 10px; font-size: 16px; border: none; border-radius: 4px;
+            background-color: #222; color: white; outline: none;
+        }
+        input:focus { box-shadow: 0 0 0 2px var(--val-red); }
+
+        button {
+            padding: 10px 20px; font-size: 16px; font-weight: bold;
+            background-color: var(--val-red); color: white; border: none;
+            border-radius: 4px; cursor: pointer; transition: 0.2s;
+        }
+        button:hover { background-color: #e03e4d; }
+        
+        #stopBtn { background-color: #555; display: none; }
+        #stopBtn:hover { background-color: #777; }
+
+        #status { font-size: 14px; color: #aaa; margin-bottom: 20px; height: 20px; }
+
+        /* Dashboard Layout */
+        .dashboard {
+            display: none; 
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .stat-box {
+            background-color: var(--bg-panel);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Profile Header */
+        .profile-header {
+            grid-column: 1 / -1; 
+            height: 150px;
+            border-radius: 8px;
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            align-items: flex-end;
+            padding: 20px;
+            box-sizing: border-box;
+            border: 2px solid var(--val-red);
+            position: relative;
+        }
+        
+        .profile-header::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.1));
+            border-radius: 6px; z-index: 1;
+        }
+
+        .profile-info {
+            position: relative; z-index: 2; display: flex; align-items: center; gap: 20px;
+        }
+
+        .profile-icon {
+            width: 80px; height: 80px; border-radius: 8px; border: 2px solid white;
+        }
+
+        .profile-info h2 { margin: 0; font-size: 28px; }
+        .profile-info p { margin: 5px 0 0 0; color: #bbb; font-weight: bold; }
+
+        /* Rank Section */
+        .rank-card { text-align: center; display: flex; flex-direction: column; align-items: center; }
+        .rank-card h3 { margin-top: 0; color: var(--val-gray); }
+        .rank-icon { width: 100px; margin: 10px 0; }
+        .rank-name { font-size: 22px; font-weight: bold; margin: 0; color: var(--val-red); }
+        .rank-rr { font-size: 18px; color: #aaa; margin: 5px 0; }
+
+        /* Matches Section */
+        .matches-card h3 { margin-top: 0; margin-bottom: 15px; }
+        .match-item {
+            display: flex; align-items: center; gap: 15px;
+            background-color: rgba(0,0,0,0.3); padding: 10px;
+            border-radius: 6px; margin-bottom: 10px;
+        }
+        .match-agent { width: 50px; height: 50px; border-radius: 50%; }
+        .match-details { flex-grow: 1; }
+        .match-details strong { font-size: 16px; }
+        .match-kda { font-weight: bold; font-size: 16px; text-align: right; }
+        
+        .win { color: #4CAF50; }
+        .loss { color: #F44336; }
+        .draw { color: #FFC107; }
+
+        .error { color: var(--val-red); font-weight: bold; text-align: center; width: 100%; }
+    </style>
+</head>
+<body>
+
+    <h1>Valorant Dashboard</h1>
+
+    <div class="search-container">
+        <input type="text" id="riotName" placeholder="Riot ID (e.g. TenZ)" required>
+        <input type="text" id="riotTag" placeholder="Tag (e.g. 0000)" required style="width: 120px;">
+        <button onclick="startAutoCheck()">Search & Track</button>
+        <button id="stopBtn" onclick="stopAutoCheck()">Stop Tracker</button>
+    </div>
+
+    <div id="status">Ready.</div>
+    <div id="errorMsg" class="error"></div>
+
+    <div class="dashboard" id="dashboard">
+        <div class="profile-header" id="profileHeader">
+            <div class="profile-info">
+                <img id="profileIcon" src="" class="profile-icon">
+                <div>
+                    <h2 id="profileName">Name #Tag</h2>
+                    <p id="profileLevel">Level -- • REGION</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-box rank-card">
+            <h3>Current Rank</h3>
+            <img id="rankIcon" src="" class="rank-icon" alt="Rank">
+            <p class="rank-name" id="rankName">Unranked</p>
+            <p class="rank-rr" id="rankRR">0 RR</p>
+            <p id="rankChange" style="font-weight: bold;">Last Match: --</p>
+        </div>
+
+        <div class="stat-box matches-card">
+            <h3>Last 3 Matches</h3>
+            <div id="matchList">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        let checkInterval;
+        const apiKey = 'HDEV-2bf4c45f-2325-4ae7-a4e5-56c1753680f2'; 
+
+        function startAutoCheck() {
+            document.getElementById('errorMsg').innerHTML = '';
+            document.getElementById('stopBtn').style.display = 'inline-block';
+            
+            if (checkInterval) clearInterval(checkInterval);
+
+            fetchDashboardData(); 
+            checkInterval = setInterval(fetchDashboardData, 12000); 
+            
+            document.getElementById('status').innerText = `Auto-updating every 12 seconds...`;
+            document.getElementById('status').style.color = '#4CAF50';
+        }
+
+        function stopAutoCheck() {
+            if (checkInterval) clearInterval(checkInterval);
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('status').innerText = 'Tracking stopped.';
+            document.getElementById('status').style.color = '#aaa';
+        }
+
+        async function fetchDashboardData() {
+            const name = document.getElementById('riotName').value.trim();
+            const tag = document.getElementById('riotTag').value.trim().replace('#', '');
+            if (!name || !tag) return;
+
+            const headers = { 'Authorization': apiKey };
+
+            try {
+                // 1. Fetch Account
+                const accRes = await fetch(`https://api.henrikdev.xyz/valorant/v1/account/${name}/${tag}`, { headers });
+                const accJson = await accRes.json();
+                
+                if (accJson.status !== 200) {
+                    throw new Error(accJson.errors[0].message || "Player not found");
+                }
+                const acc = accJson.data;
+                const region = acc.region;
+
+                // 2. Fetch MMR & Matches
+                const [mmrRes, matchRes] = await Promise.all([
+                    fetch(`https://api.henrikdev.xyz/valorant/v1/mmr/${region}/${name}/${tag}`, { headers }),
+                    fetch(`https://api.henrikdev.xyz/valorant/v3/matches/${region}/${name}/${tag}?size=3`, { headers })
+                ]);
+
+                const mmrJson = await mmrRes.json();
+                const matchJson = await matchRes.json();
+
+                // --- POPULATE THE UI ---
+                document.getElementById('dashboard').style.display = 'grid';
+
+                // Account
+                document.getElementById('profileHeader').style.backgroundImage = `url('${acc.card.wide}')`;
+                document.getElementById('profileIcon').src = acc.card.small;
+                document.getElementById('profileName').innerText = `${acc.name} #${acc.tag}`;
+                document.getElementById('profileLevel').innerText = `Level ${acc.account_level} • ${region.toUpperCase()}`;
+
+                // Rank
+                if (mmrJson.status === 200 && mmrJson.data) {
+                    const mmr = mmrJson.data;
+                    document.getElementById('rankIcon').src = mmr.images.large;
+                    document.getElementById('rankName').innerText = mmr.currenttierpatched;
+                    document.getElementById('rankRR').innerText = `${mmr.ranking_in_tier} RR`;
+                    
+                    const change = mmr.mmr_change_to_last_game;
+                    const changeEl = document.getElementById('rankChange');
+                    changeEl.innerText = `Last Match: ${change > 0 ? '+' : ''}${change}`;
+                    changeEl.style.color = change > 0 ? '#4CAF50' : (change < 0 ? '#F44336' : '#aaa');
+                } else {
+                    document.getElementById('rankIcon').src = '';
+                    document.getElementById('rankName').innerText = 'Unranked';
+                    document.getElementById('rankRR').innerText = 'Hidden RR';
+                    document.getElementById('rankChange').innerText = '';
+                }
+
+                // Matches
+                let matchesHtml = '';
+                if (matchJson.status === 200 && matchJson.data) {
+                    matchJson.data.forEach(match => {
+                        const me = match.players.all_players.find(p => p.name.toLowerCase() === name.toLowerCase() && p.tag.toLowerCase() === tag.toLowerCase());
+                        
+                        if (me) {
+                            let resultClass = "draw";
+                            let resultText = "DRAW";
+                            
+                            const myTeam = me.team ? me.team.toLowerCase() : null;
+
+                            if (match.teams && myTeam && match.teams[myTeam]) {
+                                if (match.teams[myTeam].has_won) {
+                                    resultClass = "win"; resultText = "VICTORY";
+                                } else if (match.teams[myTeam].rounds_won < match.teams[myTeam].rounds_lost) {
+                                    resultClass = "loss"; resultText = "DEFEAT";
+                                }
+                            } else {
+                                // For Deathmatch/Modes without standard teams
+                                resultText = match.metadata.mode; 
+                                resultClass = "";
+                            }
+
+                            matchesHtml += `
+                                <div class="match-item">
+                                    <img src="${me.assets.agent.small}" class="match-agent" alt="${me.character}">
+                                    <div class="match-details">
+                                        <strong>${match.metadata.map}</strong> - ${match.metadata.mode}<br>
+                                        <span class="${resultClass}">${resultText}</span>
+                                    </div>
+                                    <div class="match-kda">
+                                        ${me.stats.kills} / ${me.stats.deaths} / ${me.stats.assists}
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    });
+                }
+                
+                document.getElementById('matchList').innerHTML = matchesHtml || '<p>No recent matches found.</p>';
+
+            } catch (error) {
+                document.getElementById('errorMsg').innerText = `Error: ${error.message}`;
+                stopAutoCheck();
+            }
+        }
+    </script>
+</body>
+</html>
