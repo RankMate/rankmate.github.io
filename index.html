@@ -136,7 +136,8 @@
         const valApiKey = 'HDEV-2bf4c45f-2325-4ae7-a4e5-56c1753680f2'; 
         const steamApiKey = '15752CA5233CAA6FFD19C74BFCF28CB'; 
 
-        const proxyUrl = 'https://corsproxy.io/?';
+        // New, more stable proxy
+        const proxyUrl = 'https://api.allorigins.win/raw?url=';
         let currentGame = 'valorant';
         let valInterval;
 
@@ -295,7 +296,6 @@
             document.getElementById('status').innerText = 'Connecting to official Steam servers...';
 
             try {
-                // 1. Parse the input to find the ID or Vanity Name
                 if (input.includes('steamcommunity.com')) {
                     if (input.endsWith('/')) input = input.slice(0, -1);
                     input = input.split('/').pop(); 
@@ -303,10 +303,17 @@
 
                 let steamId64 = input;
 
-                // 2. If it's not a 17-digit number, we need to ask Valve to resolve the Vanity URL first
+                // 1. Resolve Vanity URL
                 if (!/^\d{17}$/.test(input)) {
                     const resolveUrl = `http://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key=${steamApiKey}&vanityurl=${input}`;
                     const resolveRes = await fetch(proxyUrl + encodeURIComponent(resolveUrl));
+                    
+                    // Safety Check: Did the proxy hand us an HTML error page?
+                    const contentType = resolveRes.headers.get("content-type");
+                    if (contentType && contentType.indexOf("text/html") !== -1) {
+                        throw new Error("The proxy server is currently down or blocking the request.");
+                    }
+
                     const resolveJson = await resolveRes.json();
                     
                     if (resolveJson.response.success === 1) {
@@ -316,7 +323,7 @@
                     }
                 }
 
-                // 3. Fetch Player Summary (For Profile Picture and Name)
+                // 2. Fetch Player Summary & Stats
                 const summaryUrl = `http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${steamApiKey}&steamids=${steamId64}`;
                 const statsUrl = `http://api.steampowered.com/ISteamUserStats/GetUserStatsForGame/v0002/?appid=730&key=${steamApiKey}&steamid=${steamId64}`;
 
@@ -324,6 +331,11 @@
                     fetch(proxyUrl + encodeURIComponent(summaryUrl)),
                     fetch(proxyUrl + encodeURIComponent(statsUrl))
                 ]);
+
+                // Safety Check on the final fetch
+                if (!summaryRes.ok || !statsRes.ok) {
+                    throw new Error("Steam rejected the request. Ensure the profile is public.");
+                }
 
                 const summaryJson = await summaryRes.json();
                 const statsJson = await statsRes.json();
@@ -340,7 +352,6 @@
 
                 const rawStats = statsJson.playerstats.stats;
 
-                // Extract specific raw stats from Valve's array
                 const getStat = (name) => {
                     const found = rawStats.find(s => s.name === name);
                     return found ? found.value : 0;
@@ -351,11 +362,9 @@
                 const hs = getStat('total_kills_headshot');
                 const wins = getStat('total_wins');
 
-                // Calculate the percentages
                 const kdRatio = deaths > 0 ? (kills / deaths).toFixed(2) : kills;
                 const hsPercent = kills > 0 ? Math.round((hs / kills) * 100) : 0;
 
-                // 4. Update the Dashboard
                 resultDiv.className = 'dashboard'; 
                 resultDiv.style.display = 'block';
                 resultDiv.innerHTML = `
@@ -389,7 +398,11 @@
 
             } catch (error) {
                 console.error(error);
-                errorDiv.innerText = `Error: ${error.message}`;
+                let niceError = error.message;
+                if (niceError.includes("Unexpected token") || niceError.includes("JSON")) {
+                    niceError = "The proxy server is acting up. Please try again in a moment.";
+                }
+                errorDiv.innerText = `Error: ${niceError}`;
                 document.getElementById('status').innerText = 'Ready.';
             }
         }
