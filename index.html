@@ -152,7 +152,7 @@
             
             const dash = document.getElementById('dashboard');
             dash.style.display = 'none';
-            dash.className = 'dashboard'; // Reset classes
+            dash.className = 'dashboard'; 
             
             document.getElementById('errorMsg').innerText = '';
             document.querySelectorAll('.game-tab').forEach(tab => tab.classList.remove('active'));
@@ -175,8 +175,8 @@
                 root.style.setProperty('--theme-color', 'var(--cs-orange)');
                 document.getElementById('pageTitle').innerText = "CS2 / CS:GO Tracker";
                 searchContainer.innerHTML = `
-                    <input type="text" id="csId" placeholder="Steam ID (e.g. 765611...)" required style="width: 250px;">
-                    <button class="action-btn" onclick="fetchTRNData('csgo', 'steam', document.getElementById('csId').value)">Search Stats</button>
+                    <input type="text" id="csInput" placeholder="Steam ID, Custom Name, or Full URL" required style="width: 300px;">
+                    <button class="action-btn" onclick="searchCS()">Search Stats</button>
                 `;
             } else if (game === 'r6') {
                 document.getElementById('tab-r6').classList.add('active');
@@ -238,7 +238,7 @@
                 const matchJson = await matchRes.json();
 
                 const dash = document.getElementById('dashboard');
-                dash.className = 'dashboard val-grid'; // Use grid for val
+                dash.className = 'dashboard val-grid'; 
                 dash.style.display = 'grid';
                 dash.innerHTML = `
                     <div class="profile-header" style="background-image: url('${acc.card.wide}')">
@@ -297,6 +297,23 @@
         }
 
         // --- CS2 & R6 LOGIC (TRN API) ---
+
+        function searchCS() {
+            let input = document.getElementById('csInput').value.trim();
+            
+            // If the user pasted a full Steam link, extract the ID from the end of it
+            if (input.includes('steamcommunity.com')) {
+                // Remove the last slash if they accidentally included it
+                if (input.endsWith('/')) {
+                    input = input.slice(0, -1);
+                }
+                // Grab whatever is at the very end of the URL
+                input = input.split('/').pop(); 
+            }
+            
+            // Send the clean ID to the TRN API
+            fetchTRNData('csgo', 'steam', input);
+        }
 
         async function fetchTRNData(gamePath, platform, username) {
             username = username.trim();
@@ -365,7 +382,7 @@
 
             } catch (error) {
                 console.error(error);
-                errorDiv.innerText = `Error: ${error.message} (Note: TRN CS2 often requires a pure 17-digit SteamID64).`;
+                errorDiv.innerText = `Error: ${error.message}`;
                 document.getElementById('status').innerText = 'Ready.';
             }
         }
